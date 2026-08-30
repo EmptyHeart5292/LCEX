@@ -12,12 +12,14 @@
 
 ## Workspace
 
-- `crates/engine`:订单簿与撮合核心
-- `crates/protocol`:输入/输出事件协议定义(与 Kafka 序列化格式一一对应)
+- `crates/engine`:订单簿与撮合核心(已实现,见下)
+- `crates/protocol`:输入/输出事件协议定义(纯类型、零依赖;JSON 序列化随 runner 层引入)
 
-## Topic 规划(拟定)
+## 当前状态(v0.1.0)
 
-- 输入:`cex.orders.in.{symbol}`
-- 输出:`cex.trades.{symbol}`、`cex.order-events.{symbol}`
-
-状态:骨架已建,核心实现见 docs/roadmap.md(Phase 0 PoC → Phase 1 交付)。
+- 已实现:限价(GTC/IOC/FOK/Post-Only)、市价(剩余量撤销)、价格-时间优先、
+  部分成交、STP(None / CancelTaker)、撤单、全局单调 seq、确定性重放;
+- 测试:17 个单元测试全绿(`cargo test`),含重放确定性测试;
+- 性能冒烟(release):单线程约 324 万条指令/秒(2 万条指令 6.2ms);
+- 待做(Phase 0 后期):Kafka runner(输入输出接线)、checkpoint/重放落盘、
+  STP 扩展(CancelMaker / CancelBoth)、深度快照导出。
