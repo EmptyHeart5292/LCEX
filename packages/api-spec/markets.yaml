@@ -1,0 +1,43 @@
+# 交易对配置
+# 与 packages/api-spec/markets 对应;撮合引擎 topic 名为小写:cex.orders.in.btc-usdt
+
+defaults:
+  orderTypes: [LIMIT, MARKET]
+  timeInForce: [GTC, IOC, FOK]
+  stpModes: [none, cancel_taker]
+  makerFeeRate: "0.001"    # 0.1%
+  takerFeeRate: "0.001"
+
+markets:
+  - symbol: BTC-USDT
+    base: BTC
+    quote: USDT
+    status: trading
+    baseScale: 8
+    quoteScale: 8          # 价格 2 位展示,内部 8 位定点
+    displayQuoteScale: 2
+    minQty: "0.0001"
+    minNotional: "10"      # USDT
+    maxMarketQty: "5"      # 市价单单笔上限(BTC)
+
+  - symbol: ETH-USDT
+    base: ETH
+    quote: USDT
+    status: trading
+    baseScale: 8
+    quoteScale: 8
+    displayQuoteScale: 2
+    minQty: "0.001"
+    minNotional: "10"
+    maxMarketQty: "50"
+
+  - symbol: SOL-USDT
+    base: SOL
+    quote: USDT
+    status: trading
+    baseScale: 8
+    quoteScale: 8
+    displayQuoteScale: 2
+    minQty: "0.01"
+    minNotional: "10"
+    maxMarketQty: "500"

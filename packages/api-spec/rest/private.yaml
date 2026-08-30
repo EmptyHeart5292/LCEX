@@ -1,0 +1,382 @@
+openapi: 3.0.3
+info:
+  title: LCEX Private API
+  version: 0.2.0
+  description: |
+    私有交易与资产接口。
+
+    ## 鉴权(HMAC-SHA256)
+    请求头:
+    - `X-API-KEY`:API Key
+    - `X-TIMESTAMP`:毫秒时间戳,与服务端偏差超过 recvWindow 拒绝
+    - `X-SIGNATURE`:`hex(hmac_sha256(apiSecret, method + path + timestamp + body))`,
+      其中 path 含 query(如 `/api/v1/orders?symbol=BTC-USDT`),body 为原始请求体(GET/DELETE 无 body 时空串)
+    - `X-RECV-WINDOW`:可选,默认 5000ms
+    API Key 权限:read / trade / withdraw(见账户服务);IP 白名单可绑定。
+
+    ## 幂等
+    下单必须携带 `clientOrderId`(同 UID 下 30 天唯一),重复提交返回首次受理结果。
+
+    ## 错误
+    统一错误结构见 ../errors.md。
+servers:
+  - url: http://localhost:8080
+    description: 本地开发
+security:
+  - ApiKeyHmac: []
+paths:
+  /api/v1/orders:
+    post:
+      summary: 下单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaceOrderRequest"
+      responses:
+        "200":
+          description: 已受理(终态以 WS order 频道推送为准)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderAck"
+        "400":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: 撤单(orderId 或 clientOrderId 二选一)
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: clientOrderId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 撤单受理
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderAck"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/orders/open:
+    get:
+      summary: 当前委托
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+  /api/v1/orders/history:
+    get:
+      summary: 历史委托(终态)
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: beforeId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+  /api/v1/orders/{orderId}:
+    get:
+      summary: 订单详情
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/orders/{orderId}/trades:
+    get:
+      summary: 订单成交明细
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PrivateTrade"
+  /api/v1/account/balances:
+    get:
+      summary: 资产余额
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Balance"
+  /api/v1/withdrawals:
+    post:
+      summary: 提现申请(Phase 2 上线,契约先行)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, network, address, amount]
+              properties:
+                currency:
+                  type: string
+                network:
+                  type: string
+                address:
+                  type: string
+                amount:
+                  type: string
+                memo:
+                  type: string
+                  description: 部分网络(XRP/XLM 等)必填
+                clientOrderId:
+                  type: string
+      responses:
+        "200":
+          description: 已受理,进入风控/审核流
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  withdrawalId:
+                    type: integer
+                    format: int64
+                  status:
+                    type: string
+                    enum: [pending_review, approved, rejected, broadcasting, completed]
+    get:
+      summary: 提现记录
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Withdrawal"
+components:
+  securitySchemes:
+    ApiKeyHmac:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: 配合 X-TIMESTAMP / X-SIGNATURE 使用,签名算法见 info.description
+  responses:
+    Error:
+      description: 错误响应(结构见 errors.md)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    PlaceOrderRequest:
+      type: object
+      required: [symbol, clientOrderId, side, type, qty]
+      properties:
+        symbol:
+          type: string
+          example: BTC-USDT
+        clientOrderId:
+          type: string
+          maxLength: 64
+        side:
+          type: string
+          enum: [bid, ask]
+        type:
+          type: string
+          enum: [LIMIT, MARKET]
+        timeInForce:
+          type: string
+          enum: [GTC, IOC, FOK]
+          default: GTC
+          description: 市价单忽略此字段
+        stpMode:
+          type: string
+          enum: [none, cancel_taker]
+          default: none
+        postOnly:
+          type: boolean
+          default: false
+          description: 仅限价单有效;会吃单则拒绝
+        price:
+          type: string
+          description: 限价单必填
+        qty:
+          type: string
+          description: base 数量;市价单为数量语义
+    OrderAck:
+      type: object
+      properties:
+        orderId:
+          type: integer
+          format: int64
+        clientOrderId:
+          type: string
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        ts:
+          type: integer
+          format: int64
+    OrderStatus:
+      type: string
+      enum: [open, partially_filled, filled, canceled, rejected]
+    Order:
+      type: object
+      properties:
+        orderId:
+          type: integer
+          format: int64
+        clientOrderId:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [bid, ask]
+        type:
+          type: string
+          enum: [LIMIT, MARKET]
+        price:
+          type: string
+        qty:
+          type: string
+        filledQty:
+          type: string
+        avgFillPrice:
+          type: string
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        createdAt:
+          type: integer
+          format: int64
+        updatedAt:
+          type: integer
+          format: int64
+    PrivateTrade:
+      type: object
+      properties:
+        tradeId:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        symbol:
+          type: string
+        role:
+          type: string
+          enum: [maker, taker]
+        price:
+          type: string
+        qty:
+          type: string
+        fee:
+          type: string
+        feeCurrency:
+          type: string
+        ts:
+          type: integer
+          format: int64
+    Balance:
+      type: object
+      properties:
+        currency:
+          type: string
+        available:
+          type: string
+        frozen:
+          type: string
+    Withdrawal:
+      type: object
+      properties:
+        withdrawalId:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        network:
+          type: string
+        address:
+          type: string
+        amount:
+          type: string
+        fee:
+          type: string
+        txid:
+          type: string
+        status:
+          type: string
+          enum: [pending_review, approved, rejected, broadcasting, completed, failed]
+        createdAt:
+          type: integer
+          format: int64
+        completedAt:
+          type: integer
+          format: int64

@@ -1,0 +1,70 @@
+# 币种与充值网络配置
+# 单一事实源:撮合/账本精度、前端展示精度、钱包充提参数全部以本文件为准。
+# 数量为十进制字符串;金额最终以定点整数(× 1e8)落库(见 db/README.md)。
+
+currencies:
+  - code: USDT
+    name: Tether
+    precision: 8        # 展示小数位
+    scale: 8            # 内部定点缩放 1e8
+    chains:
+      - network: ethereum_erc20
+        displayName: ERC-20 (Ethereum)
+        contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        minDeposit: "10"
+        minWithdrawal: "20"
+        withdrawFee: "5"
+        confirmations: 12
+        depositEnabled: true
+        withdrawEnabled: true
+      - network: solana
+        displayName: SPL (Solana)
+        contract: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+        minDeposit: "1"
+        minWithdrawal: "5"
+        withdrawFee: "1"
+        confirmations: 32
+        depositEnabled: true
+        withdrawEnabled: true
+
+  - code: BTC
+    name: Bitcoin
+    precision: 8
+    scale: 8
+    chains:
+      - network: bitcoin
+        displayName: Bitcoin (Native SegWit)
+        minDeposit: "0.0005"
+        minWithdrawal: "0.001"
+        withdrawFee: "0.0002"
+        confirmations: 2
+        depositEnabled: true
+        withdrawEnabled: true
+
+  - code: ETH
+    name: Ethereum
+    precision: 8
+    scale: 8
+    chains:
+      - network: ethereum_erc20
+        displayName: Ethereum (Native)
+        minDeposit: "0.005"
+        minWithdrawal: "0.01"
+        withdrawFee: "0.0015"
+        confirmations: 12
+        depositEnabled: true
+        withdrawEnabled: true
+
+  - code: SOL
+    name: Solana
+    precision: 8
+    scale: 8
+    chains:
+      - network: solana
+        displayName: Solana (Native)
+        minDeposit: "0.1"
+        minWithdrawal: "0.5"
+        withdrawFee: "0.01"
+        confirmations: 32
+        depositEnabled: true
+        withdrawEnabled: true

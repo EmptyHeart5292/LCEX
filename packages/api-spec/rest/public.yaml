@@ -1,0 +1,322 @@
+openapi: 3.0.3
+info:
+  title: LCEX Public API
+  version: 0.2.0
+  description: |
+    公共行情接口,无需鉴权。
+    - symbol 格式:`BASE-QUOTE`(如 BTC-USDT);
+    - 价格/数量为十进制字符串,精度见 GET /markets(禁止浮点传输);
+    - 实时数据请优先使用 WebSocket(见 ../ws/protocol.md),REST 用于查询与断线补齐。
+servers:
+  - url: http://localhost:8080
+    description: 本地开发
+paths:
+  /api/v1/ping:
+    get:
+      summary: 健康检查
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pong:
+                    type: boolean
+                    example: true
+  /api/v1/time:
+    get:
+      summary: 服务器时间(毫秒时间戳)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  serverTime:
+                    type: integer
+                    format: int64
+                    example: 1756500000000
+  /api/v1/markets:
+    get:
+      summary: 交易对规则列表
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Market"
+  /api/v1/currencies:
+    get:
+      summary: 币种与充值网络配置
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Currency"
+  /api/v1/tickers:
+    get:
+      summary: 行情快照(全部或指定交易对)
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+            example: BTC-USDT
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticker"
+  /api/v1/depth:
+    get:
+      summary: 订单簿深度
+      description: 返回快照;增量更新走 WS depth 频道,seq 断档时用本接口重新拉取。
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 500
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Depth"
+  /api/v1/trades:
+    get:
+      summary: 最近成交(公共)
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 500
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicTrade"
+  /api/v1/klines:
+    get:
+      summary: K 线
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: interval
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [1m, 5m, 15m, 1h, 4h, 1d]
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            description: 毫秒时间戳
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Kline"
+components:
+  schemas:
+    Market:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: BTC-USDT
+        base:
+          type: string
+          example: BTC
+        quote:
+          type: string
+          example: USDT
+        status:
+          type: string
+          enum: [trading, halt]
+        baseScale:
+          type: integer
+          description: base 数量小数位
+        quoteScale:
+          type: integer
+          description: 价格小数位
+        minQty:
+          type: string
+        minNotional:
+          type: string
+          description: 最小订单名义额(quote 计价)
+        makerFeeRate:
+          type: string
+        takerFeeRate:
+          type: string
+        orderTypes:
+          type: array
+          items:
+            type: string
+            enum: [LIMIT, MARKET]
+        timeInForce:
+          type: array
+          items:
+            type: string
+            enum: [GTC, IOC, FOK]
+    Currency:
+      type: object
+      properties:
+        code:
+          type: string
+          example: BTC
+        name:
+          type: string
+          example: Bitcoin
+        precision:
+          type: integer
+        chains:
+          type: array
+          items:
+            type: object
+            properties:
+              network:
+                type: string
+                example: bitcoin
+              minDeposit:
+                type: string
+              minWithdrawal:
+                type: string
+              withdrawFee:
+                type: string
+              confirmations:
+                type: integer
+              depositEnabled:
+                type: boolean
+              withdrawEnabled:
+                type: boolean
+    Ticker:
+      type: object
+      properties:
+        symbol:
+          type: string
+        last:
+          type: string
+        bid:
+          type: string
+        ask:
+          type: string
+        high24h:
+          type: string
+        low24h:
+          type: string
+        volume24h:
+          type: string
+          description: base 计价 24h 成交量
+        quoteVolume24h:
+          type: string
+        changePct24h:
+          type: string
+        ts:
+          type: integer
+          format: int64
+    Depth:
+      type: object
+      properties:
+        symbol:
+          type: string
+        seq:
+          type: integer
+          format: int64
+          description: 撮合输出事件序号,与 WS 事件连续性校验共用
+        bids:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceLevel"
+        asks:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceLevel"
+    PriceLevel:
+      type: array
+      description: "[价格, 数量],十进制字符串"
+      items:
+        type: string
+    PublicTrade:
+      type: object
+      properties:
+        tradeId:
+          type: integer
+          format: int64
+        symbol:
+          type: string
+        price:
+          type: string
+        qty:
+          type: string
+        side:
+          type: string
+          description: Taker 方向
+          enum: [bid, ask]
+        ts:
+          type: integer
+          format: int64
+    Kline:
+      type: array
+      description: "[开盘时间, 开, 高, 低, 收, 成交量(base), 收盘时间]"
+      items:
+        type: string
