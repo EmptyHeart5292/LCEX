@@ -12,7 +12,7 @@ docker compose -f infra/docker-compose.yml up -d
 |---|---|---|---|
 | PostgreSQL | postgres:16-alpine | 5432 | 账本/账户/订单/提现 |
 | Redis | redis:7-alpine | 6379 | 缓存/限频/热点行情 |
-| Kafka(KRaft 单节点) | bitnami/kafka:3.7 | 9092 | 事件总线 |
+| Kafka(KRaft 单节点) | apache/kafka:3.9.2 | 9092 | 事件总线 |
 | ClickHouse | clickhouse/clickhouse-server:24.8 | 8123 / 9000 | K线与历史行情 |
 
 ## 说明
