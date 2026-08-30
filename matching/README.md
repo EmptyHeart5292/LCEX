@@ -13,13 +13,31 @@
 ## Workspace
 
 - `crates/engine`:订单簿与撮合核心(已实现,见下)
-- `crates/protocol`:输入/输出事件协议定义(纯类型、零依赖;JSON 序列化随 runner 层引入)
+- `crates/protocol`:输入/输出事件协议定义(serde JSON;定点整数,禁浮点)
+- `crates/runner`:Kafka 接线进程 `cex-runner`
 
-## 当前状态(v0.1.0)
+## Topic 与消息格式
+
+- 输入:`cex.orders.in.{symbol}` —— `{"type":"place",...}` / `{"type":"cancel",...}`
+- 输出:`cex.trades.{symbol}` —— `{"seq":N,"kind":"trade","data":{...}}`
+- 输出:`cex.order-events.{symbol}` —— `{"seq":N,"kind":"order_update","data":{...}}`
+- symbol 为小写:`cex.orders.in.btc-usdt`;消息格式定义见 `crates/protocol/src/lib.rs`
+- 每交易对输入 topic 单分区;runner 实例间按 symbol 静态分片,task 内独占引擎状态
+
+## 运行
+
+```bash
+docker compose -f infra/docker-compose.yml up -d kafka   # 本地 broker
+CEX_KAFKA_BROKERS=localhost:9092 cargo run -p cex-runner  # 默认 BTC/ETH/SOL-USDT
+```
+
+环境变量:`CEX_KAFKA_BROKERS` / `CEX_SYMBOLS`(逗号分隔)/ `CEX_TOPIC_PREFIX`。
+
+## 当前状态(v0.2.0)
 
 - 已实现:限价(GTC/IOC/FOK/Post-Only)、市价(剩余量撤销)、价格-时间优先、
   部分成交、STP(None / CancelTaker)、撤单、全局单调 seq、确定性重放;
-- 测试:17 个单元测试全绿(`cargo test`),含重放确定性测试;
-- 性能冒烟(release):单线程约 324 万条指令/秒(2 万条指令 6.2ms);
-- 待做(Phase 0 后期):Kafka runner(输入输出接线)、checkpoint/重放落盘、
+  JSON 编解码(扁平信封)、事件路由、Kafka 消费/生产 worker(SIGINT/SIGTERM 优雅退出);
+- 测试:24 个单元测试全绿;性能冒烟(release)单线程约 324 万条指令/秒;
+- 待做(v0.3.0):与 order 服务联调的真实 broker E2E、checkpoint/重放落盘、
   STP 扩展(CancelMaker / CancelBoth)、深度快照导出。

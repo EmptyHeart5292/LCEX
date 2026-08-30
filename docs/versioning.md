@@ -16,8 +16,8 @@
 
 | Tag | 交付物 | 状态 |
 |---|---|---|
-| v0.1.0 | Phase 0:账本 schema + 撮合引擎核心(含测试) | 进行中 |
-| v0.2.0 | API 契约 v1 + 撮合 Kafka runner | 规划 |
-| v0.3.0 | Phase 1:核心交易闭环(account/order/clearing/market + web 交易页) | 规划 |
+| v0.1.0 | Phase 0:账本 schema + 撮合引擎核心(含测试) | 已交付 |
+| v0.2.0 | API 契约 v1 + 撮合 Kafka runner | 已交付 |
+| v0.3.0 | Phase 1:核心交易闭环(account/order/clearing/market + web 交易页) | 进行中 |
 | v0.4.0 | Phase 2:资金闭环(托管钱包、充提、对账)+ market-maker | 规划 |
 | v1.0.0 | MVP 灰度上线 | 规划 |
