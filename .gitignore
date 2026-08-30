@@ -1,0 +1,28 @@
+# Node / 前端
+node_modules/
+.next/
+dist/
+build/
+
+# Rust
+target/
+
+# Go
+*.test
+*.out
+
+# 环境与密钥(严禁入库)
+.env
+.env.*
+*.pem
+*.key
+secrets/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# 日志与临时文件
+*.log
+tmp/
