@@ -6,7 +6,7 @@
 //! 订单类型:限价(GTC/IOC/FOK/Post-Only)、市价(剩余量撤销,天然 IOC)。
 //! 自成交防范:MVP 支持 None / CancelTaker。
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 use cex_protocol::{
     CancelCommand, Command, Event, EventKind, OrderStatus, OrderType, OrderUpdate, PlaceCommand,
@@ -34,6 +34,9 @@ pub struct Engine {
     asks: BTreeMap<Px, Level>,
     /// order_id -> (side, price):撤单与统计的定位索引
     index: HashMap<u64, (Side, Px)>,
+    /// 已受理过的 order_id:重复命令(重放/重复投递)静默忽略,
+    /// 保证 at-least-once 投递下重放安全
+    seen: HashSet<u64>,
     next_trade_id: u64,
     last_seq: u64,
 }
@@ -74,6 +77,10 @@ impl Engine {
     // ---------- 撮合 ----------
 
     fn place(&mut self, p: PlaceCommand, out: &mut Vec<Event>) {
+        // 命令幂等:同一 order_id 只受理一次(重放安全)
+        if !self.seen.insert(p.order_id) {
+            return;
+        }
         if p.qty == 0 {
             return self.reject(&p, out);
         }
@@ -724,6 +731,25 @@ mod tests {
         let ev_zp = e.process(limit(4, U1, Side::Bid, 0, SCALE));
         assert_eq!(last_taker_update(&ev_zp).status, OrderStatus::Rejected);
         assert_eq!(e.resting_orders(), 0);
+    }
+
+    #[test]
+    fn duplicate_commands_are_ignored() {
+        let mut e = Engine::new();
+        let first = e.process(limit(1, U1, Side::Ask, 100 * SCALE, SCALE));
+        assert_eq!(last_taker_update(&first).status, OrderStatus::Open);
+        // 重复投递同一 place:无事件、盘口不变
+        assert!(e.process(limit(1, U1, Side::Ask, 100 * SCALE, SCALE)).is_empty());
+        assert_eq!(e.resting_orders(), 1);
+        // 成交后重放同 id 的 place:忽略,不重复挂簿
+        let fill = e.process(limit(2, U2, Side::Bid, 100 * SCALE, SCALE));
+        assert_eq!(last_taker_update(&fill).status, OrderStatus::Filled);
+        assert!(e.process(limit(1, U1, Side::Ask, 100 * SCALE, SCALE)).is_empty());
+        assert_eq!(e.resting_orders(), 0, "不得出现幽灵挂单");
+        // 重复撤单:静默
+        assert!(e.process(cancel(2, U2)).is_empty());
+        // seq 无空洞:忽略的命令不产生事件
+        assert_eq!(e.last_seq(), 4); // open1(1) + trade(2) + fill1(3) + fill2(4)
     }
 
     #[test]

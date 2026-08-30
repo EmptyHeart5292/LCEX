@@ -19,10 +19,10 @@
 ## Topic 与消息格式
 
 - 输入:`cex.orders.in.{symbol}` —— `{"type":"place",...}` / `{"type":"cancel",...}`
-- 输出:`cex.trades.{symbol}` —— `{"seq":N,"kind":"trade","data":{...}}`
-- 输出:`cex.order-events.{symbol}` —— `{"seq":N,"kind":"order_update","data":{...}}`
+- 输出:`cex.events.{symbol}` —— `{"seq":N,"kind":"trade"|"order_update","data":{...}}`
 - symbol 为小写:`cex.orders.in.btc-usdt`;消息格式定义见 `crates/protocol/src/lib.rs`
-- 每交易对输入 topic 单分区;runner 实例间按 symbol 静态分片,task 内独占引擎状态
+- **每交易对输入/输出均单分区**;输出单一 topic 保证下游事件顺序与引擎一致
+  (成交先于终态 order_update,清算"先结算后解冻"依赖此顺序),实例间按 symbol 静态分片
 
 ## 运行
 

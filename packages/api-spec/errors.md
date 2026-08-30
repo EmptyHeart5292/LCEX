@@ -46,6 +46,8 @@ HTTP 状态码与业务码同时返回:4xx = 客户端错误,5xx = 服务端错�
 | 50011 | 400 | order not cancelable | 订单已终态,不可撤 |
 | 51001 | 400 | insufficient balance | 余额不足(冻结失败) |
 | 51002 | 400 | market order qty exceeds limit | 市价单数量超上限 |
+| 50012 | 400 | market buy not supported | 市价买单 MVP 暂不支持(MVP 仅市价卖出) |
+| 51002 | 400 | market order qty exceeds limit | 市价单数量超上限 |
 
 ## 提现(6xxxx)
 

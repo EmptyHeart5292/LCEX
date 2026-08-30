@@ -51,6 +51,8 @@ pub async fn run_symbol(
     loop {
         tokio::select! {
             _ = shutdown.changed() => {
+                // consumer 在函数返回时 drop,librdkafka destroy 会优雅离开消费组,
+                // 避免残留成员阻塞下一轮 rebalance
                 info!(symbol = %symbol, resting_orders = engine.resting_orders(), last_seq = engine.last_seq(), "worker shutting down");
                 break;
             }

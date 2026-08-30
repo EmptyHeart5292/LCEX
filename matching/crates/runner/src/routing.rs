@@ -1,9 +1,8 @@
-//! 事件路由:按事件类型决定输出 topic。
-//!
-//! - `trade` → `cex.trades.{symbol}`(下游:清算、行情、推送)
-//! - `order_update` → `cex.order-events.{symbol}`(下游:订单服务、行情、推送)
+//! 事件路由:撮合输出进入每交易对单一 topic,保证下游看到的事件顺序
+//! 与引擎输出完全一致(成交先于终态 order_update)——
+//! 这是清算正确性(先结算后解冻)的前提,禁止拆分多 topic。
 
-use cex_protocol::{Event, EventKind};
+use cex_protocol::Event;
 
 use crate::codec;
 
@@ -11,23 +10,15 @@ pub fn input_topic(prefix: &str, symbol: &str) -> String {
     format!("{prefix}.orders.in.{}", symbol.to_lowercase())
 }
 
-pub fn trades_topic(prefix: &str, symbol: &str) -> String {
-    format!("{prefix}.trades.{}", symbol.to_lowercase())
+pub fn events_topic(prefix: &str, symbol: &str) -> String {
+    format!("{prefix}.events.{}", symbol.to_lowercase())
 }
 
-pub fn order_events_topic(prefix: &str, symbol: &str) -> String {
-    format!("{prefix}.order-events.{}", symbol.to_lowercase())
-}
-
+/// 事件 → (topic, payload);全部进单一 events topic,kind 由消费端过滤
 pub fn route_events(prefix: &str, symbol: &str, events: &[Event]) -> Vec<(String, String)> {
+    let topic = events_topic(prefix, symbol);
     events
         .iter()
-        .map(|ev| {
-            let topic = match ev.kind {
-                EventKind::Trade(_) => trades_topic(prefix, symbol),
-                EventKind::OrderUpdate(_) => order_events_topic(prefix, symbol),
-            };
-            (topic, codec::encode_event(ev))
-        })
+        .map(|ev| (topic.clone(), codec::encode_event(ev)))
         .collect()
 }

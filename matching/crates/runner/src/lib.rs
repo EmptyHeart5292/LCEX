@@ -64,11 +64,7 @@ mod tests {
     #[test]
     fn topic_naming_is_lowercased() {
         assert_eq!(routing::input_topic("cex", "BTC-USDT"), "cex.orders.in.btc-usdt");
-        assert_eq!(routing::trades_topic("cex", "BTC-USDT"), "cex.trades.btc-usdt");
-        assert_eq!(
-            routing::order_events_topic("cex", "BTC-USDT"),
-            "cex.order-events.btc-usdt"
-        );
+        assert_eq!(routing::events_topic("cex", "BTC-USDT"), "cex.events.btc-usdt");
     }
 
     #[test]
@@ -87,7 +83,6 @@ mod tests {
         // 挂单:只有 order_update
         let routes = process_command(&mut engine, place(1, 7, Side::Ask, 100 * SCALE, SCALE), "cex", "BTC-USDT");
         assert_eq!(routes.len(), 1);
-        assert_eq!(routes[0].0, "cex.order-events.btc-usdt");
 
         // 吃单:1 条 trade + maker/taker 两条 order_update
         let routes = process_command(&mut engine, place(2, 8, Side::Bid, 100 * SCALE, SCALE), "cex", "BTC-USDT");
@@ -98,12 +93,10 @@ mod tests {
             let ev: Event = serde_json::from_str(payload).expect("payload is valid event JSON");
             last_seq += 1;
             assert_eq!(ev.seq, last_seq, "seq 跨指令连续");
+            assert_eq!(topic, "cex.events.btc-usdt", "单一 events topic");
             match &ev.kind {
-                EventKind::Trade(_) => {
-                    assert_eq!(topic, "cex.trades.btc-usdt");
-                    trade_count += 1;
-                }
-                EventKind::OrderUpdate(_) => assert_eq!(topic, "cex.order-events.btc-usdt"),
+                EventKind::Trade(_) => trade_count += 1,
+                EventKind::OrderUpdate(_) => {}
             }
         }
         assert_eq!(trade_count, 1);
