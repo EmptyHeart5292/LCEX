@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LCEX · 交易</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">LCEX</div>
+  <select id="symbolSel">
+    <option value="BTC-USDT">BTC/USDT</option>
+    <option value="ETH-USDT">ETH/USDT</option>
+    <option value="SOL-USDT">SOL/USDT</option>
+  </select>
+  <div class="ticker">
+    <span id="tLast">--</span>
+    <span id="tChg" class="chg">--</span>
+    <span class="dim">24h高 <b id="tHigh">--</b></span>
+    <span class="dim">24h低 <b id="tLow">--</b></span>
+    <span class="dim">24h量 <b id="tVol">--</b></span>
+  </div>
+  <div class="uid">UID <input id="uid" value="101" title="MVP 鉴权占位:网关接入后由登录态取代"></div>
+</header>
+
+<main>
+  <section class="book">
+    <h3>订单簿 <span id="depthSeq" class="dim"></span></h3>
+    <div class="asks" id="asks"></div>
+    <div class="mid" id="mid">--</div>
+    <div class="bids" id="bids"></div>
+  </section>
+
+  <section class="chart">
+    <h3>K线 (1m)</h3>
+    <canvas id="kline" width="640" height="300"></canvas>
+    <h3>最新成交</h3>
+    <table id="trades"><thead><tr><th>价格</th><th>数量</th><th>时间</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section class="trade">
+    <div class="sideSwitch">
+      <button id="btnBuy" class="buy active">买入</button>
+      <button id="btnSell" class="sell">卖出</button>
+    </div>
+    <label>价格 (USDT)<input id="price" type="number" step="0.01" placeholder="0.00"></label>
+    <label>数量 (BTC)<input id="qty" type="number" step="0.0001" placeholder="0.0000"></label>
+    <div class="avail dim">可用: <span id="avail">--</span> <span id="availCcy"></span></div>
+    <button id="submit" class="submit buy">买入 BTC</button>
+    <div id="formMsg" class="formMsg"></div>
+    <h3>资产</h3>
+    <table id="balances"><thead><tr><th>币种</th><th>可用</th><th>冻结</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section class="orders">
+    <h3>当前委托</h3>
+    <table id="openOrders"><thead><tr><th>时间</th><th>方向</th><th>价格</th><th>数量</th><th>已成交</th><th>操作</th></tr></thead><tbody></tbody></table>
+    <div id="noOrders" class="dim">暂无当前委托</div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>

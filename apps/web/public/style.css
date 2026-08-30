@@ -1,0 +1,45 @@
+:root {
+  --bg: #0e1117; --panel: #161b26; --line: #232a3a;
+  --text: #e6e9f0; --dim: #8b93a7;
+  --up: #2ebd85; --down: #f6465d; --accent: #4b8cff;
+}
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 13px/1.5 "Segoe UI", "PingFang SC", sans-serif; }
+
+header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { font-size: 18px; font-weight: 700; color: var(--accent); }
+select, input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; }
+.ticker { display: flex; gap: 14px; align-items: baseline; }
+.ticker #tLast { font-size: 18px; font-weight: 700; }
+.chg.up { color: var(--up); } .chg.down { color: var(--down); }
+.dim { color: var(--dim); } .dim b { color: var(--text); font-weight: 500; }
+.uid { margin-left: auto; }
+
+main { display: grid; grid-template-columns: 260px 1fr 280px; gap: 12px; padding: 12px; max-width: 1280px; margin: 0 auto; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+h3 { font-size: 12px; color: var(--dim); font-weight: 500; margin-bottom: 8px; }
+
+.book .row, .asks .row, .bids .row { display: flex; justify-content: space-between; padding: 1px 4px; font-variant-numeric: tabular-nums; }
+.asks .row { color: var(--down); } .bids .row { color: var(--up); }
+.mid { text-align: center; font-size: 16px; font-weight: 700; padding: 6px 0; }
+.row .qty { color: var(--dim); }
+
+#kline { width: 100%; height: 300px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+#trades, #balances, #openOrders { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+#trades th, #balances th, #openOrders th { color: var(--dim); font-weight: 400; text-align: left; padding: 2px 4px; }
+#trades td, #balances td, #openOrders td { padding: 2px 4px; border-top: 1px solid var(--line); }
+#trades .ask { color: var(--down); } #trades .bid { color: var(--up); }
+
+.sideSwitch { display: flex; gap: 6px; margin-bottom: 10px; }
+.sideSwitch button { flex: 1; padding: 6px 0; border: 1px solid var(--line); background: transparent; color: var(--dim); border-radius: 4px; cursor: pointer; }
+.sideSwitch .buy.active { background: var(--up); color: #fff; border-color: var(--up); }
+.sideSwitch .sell.active { background: var(--down); color: #fff; border-color: var(--down); }
+.trade label { display: block; margin: 8px 0; }
+.trade input { width: 100%; margin-top: 3px; }
+.submit { width: 100%; padding: 8px 0; border: 0; border-radius: 4px; color: #fff; font-weight: 600; cursor: pointer; }
+.submit.buy { background: var(--up); } .submit.sell { background: var(--down); }
+.formMsg { margin-top: 8px; min-height: 18px; color: var(--down); }
+.cancelBtn { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 3px; cursor: pointer; padding: 1px 8px; }
+.cancelBtn:hover { color: var(--down); border-color: var(--down); }
+
+#toast { position: fixed; right: 16px; top: 60px; background: var(--panel); border: 1px solid var(--accent); color: var(--text); padding: 10px 14px; border-radius: 6px; display: none; }

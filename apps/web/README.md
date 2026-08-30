@@ -1,25 +1,26 @@
 # web — PC 主站
 
-当前最高优先级的前端,Phase 1 开始开发。
+当前实现:**无构建静态 SPA + Go 迷你网关**(ADR-008)。浏览器访问 :8080 单一 origin:
 
-## 技术栈(拟定)
+- `/` 静态页(index.html / app.js / style.css,vanilla JS,零依赖)
+- `/api/v1/orders*`、`/api/v1/account/*` → 反代 order 服务
+- `/api/v1/depth|tickers|trades|klines`、`/stream`(WS)→ 反代 market 服务
 
-Next.js(App Router)+ React 18 + TypeScript;状态管理 Zustand;K线图用 TradingView lightweight-charts。
+迷你网关消除 CORS 并统一入口,未来演进为完整 api-gateway(鉴权/限频在此落地);
+UI 迁移 Next.js 时数据契约不变(packages/api-spec)。
 
-## 页面规划(MVP)
+## 交易页功能(已实现)
 
-- 首页:市场概览、热门交易对(指数价参考)
-- 行情页:交易对列表
-- 交易页:K线、盘口、深度图、最新成交、下单面板(限价/市价)、当前委托/历史委托
-- 资产:总览、充值、提现、资金流水
-- 个人中心:登录注册、2FA、资金密码、API Key、提现地址白名单
+- 订单簿(买卖各 12 档,seq 连续性校验,断档自动重拉快照)
+- 1m K线(canvas 绘制)+ 最新成交(taker 方向着色)
+- 限价下单(买/卖)、资产总览(可用/冻结)、当前委托与撤单
+- WS 断线指数退避重连、心跳回应、symbol 切换重订阅
 
-## 约定
+## 运行
 
-- 所有接口与 WS 协议以 `packages/api-spec` 为单一事实源,类型自动生成;
-- 实时数据:公共 WS(行情)+ 私有 WS(订单/余额),按 sequence 处理断线重连与补齐;
-- 盘口过薄时行情展示可回退 price-index 指数数据(可配置,见 docs/architecture.md §2)。
+```bash
+go build -o /tmp/cex-web ./apps/web
+CEX_WEB_STATIC=apps/web/public /tmp/cex-web   # 默认 :8080,上游 8081/8082
+```
 
-## 目录规划(脚手架时建立)
-
-`src/app` 页面路由、`src/components` 组件、`src/stores` 状态、`src/lib`(WS client、由契约生成的 API client)。
+MVP 鉴权占位:页面 UID 输入框 → `X-User-Id` 请求头;登录态由网关统一签发后移除。
