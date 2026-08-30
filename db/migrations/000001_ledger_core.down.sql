@@ -1,0 +1,9 @@
+BEGIN;
+
+DROP VIEW IF EXISTS v_balance_mismatch;
+DROP TABLE IF EXISTS ledger_entries;
+DROP TABLE IF EXISTS journals;
+DROP TABLE IF EXISTS accounts;
+DROP TABLE IF EXISTS currencies;
+
+COMMIT;

@@ -33,6 +33,8 @@
 │   ├── wallet/            # 托管对接、充值提现、归集、对账
 │   └── risk/              # 风控规则、熔断
 ├── matching/              # 撮合引擎(Rust workspace)
+├── db/
+│   └── migrations/        # PostgreSQL 迁移(账本 schema;不变式见 db/README.md)
 ├── packages/
 │   ├── api-spec/          # API 契约:REST/WS/错误码/交易对配置(单一事实源)
 │   └── exchange-connector/ # 外部交易所连接器库(price-index/market-maker 复用)
