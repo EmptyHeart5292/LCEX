@@ -26,7 +26,7 @@ command -v docker >/dev/null || fail "需要 docker"
 [ -x "$RUNNER" ] || fail "先构建: (cd matching && cargo build --release -p cex-runner)"
 docker exec "$CT" true 2>/dev/null || fail "kafka 容器未运行: docker compose -f infra/docker-compose.yml up -d kafka"
 
-kc() { docker exec -i "$CT" "$KBIN/$(basename "$1")" --bootstrap-server "$BROKERS" "${@:2}"; }
+kc() { timeout 20 docker exec -i "$CT" "$KBIN/$(basename "$1")" --bootstrap-server "$BROKERS" "${@:2}"; }
 
 wait_topic_gone() { # topic 删除是异步的:必须等到真删除,否则 create 命中旧数据
   for _ in $(seq 1 30); do

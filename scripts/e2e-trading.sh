@@ -28,9 +28,26 @@ HTTP="http://localhost:8081"
 
 log() { echo "[e2e-t] $*"; }
 fail() { echo "[e2e-t] FAIL: $*" >&2; exit 1; }
+
+wait_port_free() { # 上轮服务优雅退出需要几秒,端口释放后再启动
+  for _ in $(seq 1 30); do
+    curl -s -m 1 "http://localhost:$1/healthz" -o /dev/null 2>/dev/null || return 0
+    sleep 0.5
+  done
+  return 1
+}
+
+wait_group_member() { # 等待消费组成员就绪(rebalance 完成,陈旧成员被踢)
+  for _ in $(seq 1 40); do
+    M=$(kc kafka-consumer-groups.sh --describe --group "$1" 2>/dev/null | awk 'NR>1 && $7!="-" && $7!=""' | wc -l)
+    [ "$M" != "0" ] && return 0
+    sleep 0.5
+  done
+  return 1
+}
 psql() { docker exec -i "$PG_CT" psql -U cex -d cex -v ON_ERROR_STOP=1 "$@"; }
 q()    { docker exec "$PG_CT" psql -U cex -d cex -tAc "$1"; }
-kc()   { docker exec -i "$KC_CT" "$KBIN/$(basename "$1")" --bootstrap-server "$BROKERS" "${@:2}"; }
+kc()   { timeout 20 docker exec -i "$KC_CT" "$KBIN/$(basename "$1")" --bootstrap-server "$BROKERS" "${@:2}"; }
 
 wait_topic_gone() { # topic 删除是异步的:必须等到真删除,否则 create 命中旧数据
   for _ in $(seq 1 30); do
@@ -48,11 +65,14 @@ docker exec "$KC_CT" true 2>/dev/null || fail "kafka 容器未运行"
 # 0. 构建 + 迁移
 log "构建 Go 服务"
 (cd "$ROOT" && go build -o "$ORDER_BIN" ./services/order && go build -o "$CLEARING_BIN" ./services/clearing)
+wait_port_free 8081 || true
 log "执行迁移"
 bash "$ROOT/scripts/db-migrate.sh" >/dev/null
 
 # 1. 重置测试状态(仅 dev 库:清空订单与账本,kafka topic 重建)
 log "重置订单/账本/topic"
+
+
 psql -c "TRUNCATE orders, journals, ledger_entries, accounts RESTART IDENTITY CASCADE" >/dev/null
 for t in "cex.orders.in.$SYMBOL" "cex.events.$SYMBOL"; do
   kc kafka-topics.sh --delete --topic "$t" >/dev/null 2>&1 || true
@@ -120,6 +140,8 @@ for g in clearing order-status-sync "cex-matching-$SYMBOL"; do
   done
 done
 
+
+
 log "启动 clearing / order / runner"
 CEX_KAFKA_BROKERS="$BROKERS" CEX_MARKETS_FILE="$ROOT/packages/api-spec/markets.yaml" "$CLEARING_BIN" >/tmp/cex-clearing.log 2>&1 & P1=$!
 CEX_KAFKA_BROKERS="$BROKERS" CEX_MARKETS_FILE="$ROOT/packages/api-spec/markets.yaml" "$ORDER_BIN"   >/tmp/cex-order.log    2>&1 & P2=$!
@@ -171,6 +193,9 @@ curl -sf -X DELETE "$HTTP/api/v1/orders/$ID3" -H "X-User-Id: 102" >/dev/null || 
 
 # 6. 等待主成交两单终态
 log "等待成交结算"
+wait_group_member "cex-matching-$SYMBOL" || fail "runner 消费组未就绪"
+wait_group_member "clearing" || fail "clearing 消费组未就绪"
+wait_group_member "order-status-sync" || fail "order-status-sync 消费组未就绪"
 for i in $(seq 1 40); do
   N=$(q "SELECT count(*) FROM orders WHERE order_id IN ($ID1,$ID2) AND status='filled'")
   C=$(q "SELECT status FROM orders WHERE order_id=$ID3")
