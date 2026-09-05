@@ -7,7 +7,7 @@
 - 每个交易对一个单线程引擎实例,订单簿全内存,无跨线程共享锁;
 - 输入/输出全部为 Kafka 事件,事件溯源:从 log 重放可完整恢复订单簿;
 - 输出事件带全局单调递增 sequence,下游据此校验连续性;
-- 崩溃恢复 = 从最后 checkpoint 之后重放事件;
+- 崩溃恢复 = 启动时从指令 log 开头重放重建订单簿;已提交 offset 之前不重复投递;产出成功后再提交;
 - 自成交防范(STP);订单类型:MVP 支持 GTC / IOC / FOK / Post-Only / 市价单。
 
 ## Workspace
@@ -39,5 +39,5 @@ CEX_KAFKA_BROKERS=localhost:9092 cargo run -p cex-runner  # 默认 BTC/ETH/SOL-U
   部分成交、STP(None / CancelTaker)、撤单、全局单调 seq、确定性重放;
   JSON 编解码(扁平信封)、事件路由、Kafka 消费/生产 worker(SIGINT/SIGTERM 优雅退出);
 - 测试:24 个单元测试全绿;性能冒烟(release)单线程约 324 万条指令/秒;
-- 待做(v0.3.0):与 order 服务联调的真实 broker E2E、checkpoint/重放落盘、
-  STP 扩展(CancelMaker / CancelBoth)、深度快照导出。
+- 已实现(runner):手动提交(先产出再提交)、启动从 `cex.orders.in.{symbol}` 重放;
+- 待做:checkpoint 快照(避免全量重放)、STP 扩展(CancelMaker / CancelBoth)、深度快照导出。

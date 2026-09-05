@@ -2,10 +2,11 @@
 //!
 //! 拓扑(matching/README.md):
 //! - 输入:`cex.orders.in.{symbol}`(每交易对单分区,runner 内单 task 消费,与引擎单线程约束一致)
-//! - 输出:成交 → `cex.trades.{symbol}`,订单状态 → `cex.order-events.{symbol}`
+//! - 输出:全部事件 → `cex.events.{symbol}`
 //! - 消息格式见 `cex_protocol`(JSON,判别字段在外层)
 //!
-//! 语义:at-least-once + 下游幂等(成交按 trade_id、订单事件按 order_id+seq 去重)。
+//! 语义:at-least-once + 先产出再提交;启动从指令 log 重放重建订单簿。
+//! 下游幂等(成交按 trade_id、订单事件按 order_id+seq 去重)。
 
 pub mod codec;
 pub mod config;
@@ -37,6 +38,8 @@ mod tests {
         Event, EventKind, OrderType, PlaceCommand, Px, Qty, Side, TimeInForce, SCALE,
     };
     use config::parse_symbols;
+    use rdkafka::topic_partition_list::Offset;
+    use worker::{committed_next_from_offset, is_replay};
 
     fn place(id: u64, user: u64, side: Side, price: Px, qty: Qty) -> Command {
         Command::Place(PlaceCommand {
@@ -101,5 +104,21 @@ mod tests {
         }
         assert_eq!(trade_count, 1);
         assert_eq!(engine.last_seq(), 4, "1(挂单)+ 3(吃单)个事件");
+    }
+
+    #[test]
+    fn replay_skips_already_committed_offsets() {
+        assert!(is_replay(0, 3));
+        assert!(is_replay(2, 3));
+        assert!(!is_replay(3, 3));
+        assert!(!is_replay(4, 3));
+        assert!(!is_replay(0, 0), "从未提交则全部投递");
+    }
+
+    #[test]
+    fn committed_next_treats_invalid_as_zero() {
+        assert_eq!(committed_next_from_offset(Offset::Invalid), 0);
+        assert_eq!(committed_next_from_offset(Offset::Beginning), 0);
+        assert_eq!(committed_next_from_offset(Offset::Offset(7)), 7);
     }
 }
