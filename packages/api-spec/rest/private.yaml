@@ -172,6 +172,51 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Balance"
+
+  /api/v1/deposit-addresses:
+    get:
+      summary: 获取或分配充值地址
+      parameters:
+        - name: currency
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: network
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currency:
+                    type: string
+                  network:
+                    type: string
+                  address:
+                    type: string
+                  confirmations:
+                    type: integer
+                  minDeposit:
+                    type: string
+  /api/v1/deposits:
+    get:
+      summary: 充值记录
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
   /api/v1/withdrawals:
     post:
       summary: 提现申请(Phase 2 上线,契约先行)

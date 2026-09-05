@@ -14,4 +14,4 @@ Phase 1 起补充:
 
 - `e2e-mm.sh`:Phase 2 起步 —— mock 入账 + 做市按指数双边挂单,断言盘口夹住指数。
   前置:postgres/kafka/redis + cex-runner release。
-
+- `e2e-wallet.sh`:资金闭环 mock 链 —— 地址/确认入账/提现扣费/幂等。

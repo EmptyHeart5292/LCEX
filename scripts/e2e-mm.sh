@@ -68,7 +68,7 @@ CEX_KAFKA_BROKERS="$BROKERS" /tmp/cex-market >/tmp/cex-market.log 2>&1 & P4=$!
 CEX_KAFKA_BROKERS="$BROKERS" CEX_SYMBOLS="BTC-USDT" CEX_PX_SOURCES=binance \
   CEX_PX_BINANCE_URL="ws://localhost:9999/ws/btcusdt" CEX_PX_STALE_MS=3000 \
   /tmp/cex-price-index >/tmp/cex-price-index.log 2>&1 & P5=$!
-/tmp/cex-wallet >/tmp/cex-wallet.log 2>&1 & P6=$!
+CEX_CURRENCIES_FILE="$ROOT/packages/api-spec/currencies.yaml" /tmp/cex-wallet >/tmp/cex-wallet.log 2>&1 & P6=$!
 trap 'kill $PM $P1 $P2 $P3 $P4 $P5 $P6 $P7 2>/dev/null || true; sleep 1; kill -9 $PM $P1 $P2 $P3 $P4 $P5 $P6 $P7 2>/dev/null || true' EXIT
 
 for i in $(seq 1 30); do

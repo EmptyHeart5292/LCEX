@@ -4,6 +4,7 @@
 //   /                       → apps/web/public 静态文件
 //   /api/v1/orders*         → order   :8081(交易与资产)
 //   /api/v1/depth|tickers|… → market  :8082(行情,含 /stream WS 反代)
+//   /api/v1/deposit*|withdrawals → wallet :8084
 //
 // MVP 鉴权占位:浏览器以 X-User-Id 头标识用户,登录态由后续网关统一签发。
 package main
@@ -39,6 +40,7 @@ func main() {
 
 	orderProxy := newProxy(envOr("CEX_ORDER_URL", "http://localhost:8081"))
 	marketProxy := newProxy(envOr("CEX_MARKET_URL", "http://localhost:8082"))
+	walletProxy := newProxy(envOr("CEX_WALLET_URL", "http://localhost:8084"))
 	staticDir := envOr("CEX_WEB_STATIC", "apps/web/public")
 
 	mux := http.NewServeMux()
@@ -49,6 +51,11 @@ func main() {
 	mux.Handle("/api/v1/orders", orderProxy)
 	mux.Handle("/api/v1/orders/", orderProxy)
 	mux.Handle("/api/v1/account/", orderProxy)
+	mux.Handle("/api/v1/deposit-addresses", walletProxy)
+	mux.Handle("/api/v1/deposits", walletProxy)
+	mux.Handle("/api/v1/deposits/", walletProxy)
+	mux.Handle("/api/v1/withdrawals", walletProxy)
+	mux.Handle("/api/v1/withdrawals/", walletProxy)
 	mux.Handle("/api/v1/depth", marketProxy)
 	mux.Handle("/api/v1/tickers", marketProxy)
 	mux.Handle("/api/v1/trades", marketProxy)
