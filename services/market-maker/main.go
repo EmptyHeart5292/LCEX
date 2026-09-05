@@ -66,6 +66,7 @@ type config struct {
 	httpAddr      string
 	baseCcy       string
 	quoteCcy      string
+	riskURL       string
 }
 
 func loadConfig() config {
@@ -85,6 +86,7 @@ func loadConfig() config {
 		httpAddr:     envOr("CEX_HTTP_ADDR", ":8085"),
 		baseCcy:      envOr("CEX_MM_BASE", "BTC"),
 		quoteCcy:     envOr("CEX_MM_QUOTE", "USDT"),
+		riskURL:      strings.TrimRight(envOr("CEX_RISK_URL", ""), "/"),
 	}
 }
 
@@ -173,7 +175,7 @@ func (s *service) runSymbol(ctx context.Context, symbol string) {
 }
 
 func (s *service) tick(ctx context.Context, symbol string) {
-	if s.paused.Load() || !s.hedger.Healthy() {
+	if s.paused.Load() || !s.hedger.Healthy() || !s.mmAllowed(ctx) {
 		_ = s.cancelOpen(ctx, symbol)
 		return
 	}
@@ -410,4 +412,27 @@ func (s *service) place(ctx context.Context, symbol, side, price, qty string) er
 
 func (s *service) auth(req *http.Request) {
 	req.Header.Set("X-User-Id", strconv.FormatInt(s.cfg.userID, 10))
+}
+
+func (s *service) mmAllowed(ctx context.Context) bool {
+	if s.cfg.riskURL == "" {
+		return true
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.cfg.riskURL+"/v1/status", nil)
+	if err != nil {
+		return false
+	}
+	res, err := s.httpc.Do(req)
+	if err != nil {
+		s.log.Warn("risk unreachable, stop quoting", "err", err)
+		return false
+	}
+	defer res.Body.Close()
+	var st struct {
+		MMPaused bool `json:"mmPaused"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&st); err != nil {
+		return false
+	}
+	return !st.MMPaused
 }

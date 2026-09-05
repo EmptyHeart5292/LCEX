@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"os/signal"
 	"syscall"
 	"time"
@@ -33,6 +34,8 @@ type server struct {
 	ledger   *ledger.Ledger
 	chains   *chains.Config
 	provider Provider
+	riskURL  string
+	httpc    *http.Client
 	log      *slog.Logger
 }
 
@@ -57,7 +60,8 @@ func main() {
 	}
 	s := &server{
 		pool: pool, ledger: ledger.New(pool), chains: ccfg,
-		provider: mockProvider{}, log: slog.Default(),
+		provider: mockProvider{}, riskURL: strings.TrimRight(envOr("CEX_RISK_URL", ""), "/"),
+		httpc: &http.Client{Timeout: 3 * time.Second}, log: slog.Default(),
 	}
 
 	srv := &http.Server{Addr: addr, Handler: s.routes(), ReadHeaderTimeout: 5 * time.Second}

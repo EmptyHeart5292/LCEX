@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /internal/deposits", s.handleAdminCredit)
 	mux.HandleFunc("POST /internal/chain/deposits", s.handleChainDeposit)
 	mux.HandleFunc("POST /internal/chain/withdrawals/{id}/confirm", s.handleWithdrawConfirm)
+	mux.HandleFunc("GET /internal/reconcile", s.handleReconcile)
 	return mux
 }
 
@@ -273,6 +275,18 @@ func (s *server) handleWithdraw(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, 60001, "amount below minimum withdrawal")
 		return
 	}
+	if code, msg, err := s.riskCheckWithdraw(r.Context(), userID, req.Currency, req.Network, req.Address, amt); err != nil {
+		s.log.Error("risk", "err", err)
+		writeErr(w, http.StatusServiceUnavailable, 10002, "risk unavailable")
+		return
+	} else if code != 0 {
+		st := http.StatusBadRequest
+		if code == 60005 {
+			st = http.StatusForbidden
+		}
+		writeErr(w, st, code, msg)
+		return
+	}
 	clientID := req.ClientOrderID
 	if clientID == "" {
 		clientID = fmt.Sprintf("wd-%d-%d", userID, time.Now().UnixNano())
@@ -423,4 +437,39 @@ func (s *server) handleBalances(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeData(w, b)
+}
+
+func (s *server) riskCheckWithdraw(ctx context.Context, userID int64, currency, network, address string, amt uint64) (int, string, error) {
+	if s.riskURL == "" {
+		return 0, "", nil
+	}
+	body, _ := json.Marshal(map[string]any{
+		"userId": userID, "currency": currency, "network": network,
+		"address": address, "amount": fixed.Format(amt),
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.riskURL+"/v1/withdraw/check", bytes.NewReader(body))
+	if err != nil {
+		return 0, "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := s.httpc.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+	defer res.Body.Close()
+	var out struct {
+		Allow   bool   `json:"allow"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return 0, "", err
+	}
+	if out.Allow {
+		return 0, "", nil
+	}
+	if out.Code == 0 {
+		out.Code = 60005
+	}
+	return out.Code, out.Message, nil
 }

@@ -93,5 +93,8 @@ curl -sf -X POST "$HTTP/internal/chain/withdrawals/$WID/confirm" -H "Content-Typ
 
 MIS=$(q "SELECT count(*) FROM v_balance_mismatch")
 [ "$MIS" = "0" ] || fail "账实不符 $MIS"
+REC=$(curl -sf "$HTTP/internal/reconcile")
+echo "$REC" | python3 -c "import json,sys; d=json.load(sys.stdin)['data']; assert d['ok'] is True, d"
+bash "$ROOT/scripts/replay-check.sh"
 
-log "PASS ✔  地址/确认入账/幂等/最小额/提现扣费/链上确认"
+log "PASS ✔  地址/确认入账/幂等/最小额/提现扣费/链上确认/对账"
