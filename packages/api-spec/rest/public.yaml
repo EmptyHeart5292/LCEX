@@ -4,6 +4,8 @@ info:
   version: 0.2.0
   description: |
     公共行情接口,无需鉴权。
+    成功响应统一信封 `{"code":0,"data":...}`(与 errors.md / 私有交易接口 / 交易页 api() 对齐);
+    `data` 为本接口下方 schema。错误见 ../errors.md。
     - symbol 格式:`BASE-QUOTE`(如 BTC-USDT);
     - 价格/数量为十进制字符串,精度见 GET /markets(禁止浮点传输);
     - 实时数据请优先使用 WebSocket(见 ../ws/protocol.md),REST 用于查询与断线补齐。

@@ -11,10 +11,16 @@ func writeJSON(w http.ResponseWriter, data any) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
+// writeData 成功信封,与 order 服务 / errors.md / 交易页 api() 对齐:{"code":0,"data":...}
+func writeData(w http.ResponseWriter, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": data})
+}
+
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"code": 10003, "message": msg})
+	_ = json.NewEncoder(w).Encode(map[string]any{"code": 10003, "message": msg, "data": nil})
 }
 
 func (s *service) routes() http.Handler {
@@ -45,7 +51,7 @@ func (s *service) handleDepth(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "unknown market: "+symbol)
 		return
 	}
-	writeJSON(w, map[string]any{"symbol": symbol, "seq": seq, "bids": bids, "asks": asks})
+	writeData(w, map[string]any{"symbol": symbol, "seq": seq, "bids": bids, "asks": asks})
 }
 
 func (s *service) handleTickers(w http.ResponseWriter, r *http.Request) {
@@ -55,10 +61,10 @@ func (s *service) handleTickers(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "unknown market: "+symbol)
 			return
 		}
-		writeJSON(w, []tickerJSON{t})
+		writeData(w, []tickerJSON{t})
 		return
 	}
-	writeJSON(w, s.states.Tickers())
+	writeData(w, s.states.Tickers())
 }
 
 func (s *service) handleTrades(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +97,7 @@ func (s *service) handleTrades(w http.ResponseWriter, r *http.Request) {
 			Price: fixedFormat(t.Price), Qty: fixedFormat(t.Qty), Side: t.Side, TS: t.TS,
 		})
 	}
-	writeJSON(w, out)
+	writeData(w, out)
 }
 
 func (s *service) handleKlines(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +116,7 @@ func (s *service) handleKlines(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "unknown market or interval")
 		return
 	}
-	writeJSON(w, kls)
+	writeData(w, kls)
 }
 
 func atoiDefault(s string, def int) int {

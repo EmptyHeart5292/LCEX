@@ -174,7 +174,9 @@ log "REST 断言"
 curl -sf "$HTTP_M/api/v1/depth?symbol=BTC-USDT&limit=10" >/tmp/e2e-depth.json || fail "depth 请求失败"
 python3 - <<'PY' || fail "depth 断言失败"
 import json, sys
-d = json.load(open("/tmp/e2e-depth.json"))
+raw = json.load(open("/tmp/e2e-depth.json"))
+assert raw.get("code") == 0, raw
+d = raw["data"]
 assert d["bids"] == [["40000", "0.05"]], d["bids"]
 assert d["asks"] == [], d["asks"]
 assert d["seq"] > 0
@@ -184,7 +186,9 @@ PY
 curl -sf "$HTTP_M/api/v1/tickers?symbol=BTC-USDT" >/tmp/e2e-ticker.json || fail "ticker 请求失败"
 python3 - <<'PY' || fail "ticker 断言失败"
 import json, sys
-t = json.load(open("/tmp/e2e-ticker.json"))[0]
+raw = json.load(open("/tmp/e2e-ticker.json"))
+assert raw.get("code") == 0, raw
+t = raw["data"][0]
 assert t["last"] == "50000", t
 assert t["bid"] == "40000", t
 assert t["volume24h"] == "0.1", t
@@ -195,7 +199,9 @@ PY
 curl -sf "$HTTP_M/api/v1/trades?symbol=BTC-USDT" >/tmp/e2e-trades.json || fail "trades 请求失败"
 python3 - <<'PY' || fail "trades 断言失败"
 import json, sys
-ts = json.load(open("/tmp/e2e-trades.json"))
+raw = json.load(open("/tmp/e2e-trades.json"))
+assert raw.get("code") == 0, raw
+ts = raw["data"]
 assert len(ts) == 1, len(ts)
 assert all(t["price"] == "50000" and t["qty"] == "0.1" for t in ts)
 assert all(t["side"] == "ask" for t in ts), "taker 应为卖方 102"
@@ -205,7 +211,9 @@ PY
 curl -sf "$HTTP_M/api/v1/klines?symbol=BTC-USDT&interval=1m&limit=5" >/tmp/e2e-klines.json || fail "klines 请求失败"
 python3 - <<'PY' || fail "klines 断言失败"
 import json, sys
-ks = json.load(open("/tmp/e2e-klines.json"))
+raw = json.load(open("/tmp/e2e-klines.json"))
+assert raw.get("code") == 0, raw
+ks = raw["data"]
 assert len(ks) == 1, ks
 k = ks[0]
 assert k[1] == k[2] == k[3] == k[4] == "50000", k
@@ -221,7 +229,7 @@ for i in $(seq 1 20); do
   sleep 0.5
 done
 sleep 1
-BIDS=$(curl -sf "$HTTP_M/api/v1/depth?symbol=BTC-USDT" | python3 -c "import json,sys; print(json.load(sys.stdin)['bids'])")
+BIDS=$(curl -sf "$HTTP_M/api/v1/depth?symbol=BTC-USDT" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['bids'])")
 [ "$BIDS" = "[]" ] || fail "撤单后 bids 应为空: $BIDS"
 log "撤单后盘口清空 ok"
 
