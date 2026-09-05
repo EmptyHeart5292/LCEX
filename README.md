@@ -57,5 +57,5 @@ docker compose -f infra/docker-compose.yml up -d
 
 ## 当前优先级
 
-1. **PC 网站(apps/web)+ 后端核心交易闭环(services + matching)** —— 见 docs/roadmap.md
+1. **Phase 2 资金/做市(进行中)** —— mock 入账 + 指数锚定做市已通 e2e;托管对接与对冲仍待做。见 docs/roadmap.md
 2. 移动端暂不开发;后端能力全部经 packages/api-spec 契约暴露,保证移动端后续零改动接入

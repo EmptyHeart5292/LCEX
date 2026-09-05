@@ -87,20 +87,41 @@ func abs(v int64) int64 {
 	return v
 }
 
-// PostTx 入账一条 journal(幂等)。moves 按币种分组后,每组 Delta 之和必须为 0
-// (一笔成交天然跨 base/quote 两币种,逐币种平衡见 db/README.md 不变式)。
+// checkBalanced 不变式 1:逐币种 debit 总额 == credit 总额。
+// 同科目划转(冻结)时 signed delta 之和为 0;充值是资产与负债同时增加,
+// signed 之和不为 0,不能用 sum(delta)==0 代替借贷平衡。
+func checkBalanced(moves []Move) error {
+	type tot struct{ debit, credit int64 }
+	tots := map[string]*tot{}
+	for _, m := range moves {
+		t := tots[m.Account.Currency]
+		if t == nil {
+			t = &tot{}
+			tots[m.Account.Currency] = t
+		}
+		dir, amt := directionOf(m.Account.OwnerType, m.Delta)
+		if dir == "debit" {
+			t.debit += amt
+		} else {
+			t.credit += amt
+		}
+	}
+	for cur, t := range tots {
+		if t.debit != t.credit {
+			return fmt.Errorf("%w: %s debit=%d credit=%d", ErrUnbalanced, cur, t.debit, t.credit)
+		}
+	}
+	return nil
+}
+
+// PostTx 入账一条 journal(幂等)。逐币种借贷必平(db/README.md 不变式 1)。
+// 一笔成交天然跨 base/quote 两币种,逐币种分别平衡。
 func (l *Ledger) PostTx(ctx context.Context, tx pgx.Tx, bizType, bizID string, moves []Move) error {
 	if len(moves) < 2 {
 		return errors.New("ledger: journal needs at least 2 entries")
 	}
-	sums := map[string]int64{}
-	for _, m := range moves {
-		sums[m.Account.Currency] += m.Delta
-	}
-	for cur, sum := range sums {
-		if sum != 0 {
-			return fmt.Errorf("%w: %s sum(delta) = %d", ErrUnbalanced, cur, sum)
-		}
+	if err := checkBalanced(moves); err != nil {
+		return err
 	}
 
 	tag, err := tx.Exec(ctx,

@@ -2,23 +2,21 @@
 
 内部做市服务:为新平台盘口提供流动性并锚定外部价格。语言决策见 ADR-007(Go)。
 
-## 策略
+## 当前(Phase 2 起步)
 
-- 以 price-index 指数价为锚,双边挂单(买卖各 N 档),价差/单量按交易对配置;
-- 刷新触发:价格移动超阈值、时间超时、部分成交后重挂(cancel/replace);
-- 库存管理:各币种库存上限;偏离目标库存时调整报价偏移,并通过外部交易所私有 API 对冲保持中性;
-- 每个交易对一个独立的单 goroutine 策略循环,状态不跨 goroutine 共享。
+- 每交易对一个 goroutine;HTTP 拉 `price-index`,经 **order 服务** 挂 post-only 双边限价单(不旁路)。
+- 价差:`CEX_MM_HALF_SPREAD_BPS`(默认 10bps 每边);指数移动或不成交档位则撤再挂。
+- `POST /pause` / `POST /resume` 为本地 kill switch。
+- 尚未做:多档、库存偏移、外部所对冲、接 risk。
 
-## 风险红线
+默认用户 `CEX_MM_USER_ID=9001`,需先经 wallet 入账。验收:`scripts/e2e-mm.sh`。
 
-- 与指数价最大偏移限制(超限撤单)、最大挂单名义额限制;
-- 对冲通道故障时自动停止报价;
-- 全局 kill switch 与单交易对暂停开关(接 risk / Admin)。
+## 策略(完整目标)
+
+- 以 price-index 指数价为锚,双边挂单(买卖各 N 档);
+- 刷新:价格移动超阈值、超时、部分成交后 cancel/replace;
+- 库存上限与外部所对冲保持中性。
 
 ## 硬性约束
 
-- 全部做市单走 order → matching → clearing 正常链路,不绕过风控与账本,不提供旁路。
-
-## 依赖
-
-Kafka(指数价、本所行情)、order 服务(下单,与普通用户同链路)、`packages/exchange-connector`(外部所私有 API 对冲)。
+全部做市单走 order → matching → clearing,不提供旁路。

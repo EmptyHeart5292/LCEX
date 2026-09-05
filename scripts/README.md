@@ -11,3 +11,7 @@ Phase 1 起补充:
 - `bootstrap-kafka-topics.sh`:创建生产环境 topic(替代 compose 中的自动建 topic)
 - `db-migrate.sh`:数据库迁移
 - `replay-check.sh`:账本流水重放校验(见 services/clearing/README.md 不变式)
+
+- `e2e-mm.sh`:Phase 2 起步 —— mock 入账 + 做市按指数双边挂单,断言盘口夹住指数。
+  前置:postgres/kafka/redis + cex-runner release。
+
