@@ -102,7 +102,8 @@ done
 
 log "启动做市"
 CEX_ORDER_URL="$HTTP_O" CEX_INDEX_URL="$HTTP_PX" CEX_MM_USER_ID=9001 CEX_SYMBOLS="BTC-USDT" \
-  CEX_MM_HALF_SPREAD_BPS=10 CEX_MM_QTY="0.05" CEX_MM_REFRESH_MS=400 \
+  CEX_MM_HALF_SPREAD_BPS=10 CEX_MM_LEVELS=3 CEX_MM_QTY="0.05" CEX_MM_REFRESH_MS=400 \
+  CEX_HTTP_ADDR=":8085" \
   /tmp/cex-mm >/tmp/cex-mm.log 2>&1 & P7=$!
 
 log "等待盘口双边"
@@ -129,9 +130,38 @@ import json,urllib.request
 idx=json.load(urllib.request.urlopen("http://localhost:8083/index/BTC-USDT"))
 depth=json.load(urllib.request.urlopen("http://localhost:8082/api/v1/depth?symbol=BTC-USDT&limit=5"))
 d=depth.get("data") or depth
+assert len(d["bids"])>=3 and len(d["asks"])>=3, d
 bid=float(d["bids"][0][0]); ask=float(d["asks"][0][0]); px=float(idx["index"])
 assert bid < px < ask, (bid, px, ask)
-print("[e2e-mm] bid %.4f < index %.4f < ask %.4f" % (bid, px, ask))
+print("[e2e-mm] levels bid=%d ask=%d; %.4f < index %.4f < %.4f" % (len(d["bids"]), len(d["asks"]), bid, px, ask))
 PY
 
-log "PASS ✔  mock入账 + 做市双边挂单 + 账本平衡"
+log "status / pause / resume"
+ST=$(curl -sf http://localhost:8085/status)
+echo "$ST" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('hedgeHealthy') is True; q=d['symbols']['BTC-USDT']['quotes']; assert len(q)>=6, q; print('[e2e-mm] status quotes', len(q), 'skew', d['symbols']['BTC-USDT']['skewBps'])"
+curl -sf -X POST http://localhost:8085/pause >/dev/null
+for i in $(seq 1 30); do
+  curl -sf "$HTTP_M/api/v1/depth?symbol=BTC-USDT&limit=5" >/tmp/e2e-mm-depth.json || true
+  python3 - <<'PY' && break
+import json
+d=json.load(open("/tmp/e2e-mm-depth.json")).get("data") or {}
+assert not d.get("bids") and not d.get("asks")
+print("[e2e-mm] paused: empty book")
+PY
+  [ "$i" = 30 ] && fail "pause 后盘口未清空"
+  sleep 0.4
+done
+curl -sf -X POST http://localhost:8085/resume >/dev/null
+for i in $(seq 1 40); do
+  curl -sf "$HTTP_M/api/v1/depth?symbol=BTC-USDT&limit=5" >/tmp/e2e-mm-depth.json || true
+  python3 - <<'PY' && break
+import json
+d=json.load(open("/tmp/e2e-mm-depth.json")).get("data") or {}
+assert len(d.get("bids") or [])>=3 and len(d.get("asks") or [])>=3
+print("[e2e-mm] resumed: book back")
+PY
+  [ "$i" = 40 ] && fail "resume 后盘口未恢复"
+  sleep 0.4
+done
+
+log "PASS ✔  多档做市 + 库存偏移status + pause/resume"
